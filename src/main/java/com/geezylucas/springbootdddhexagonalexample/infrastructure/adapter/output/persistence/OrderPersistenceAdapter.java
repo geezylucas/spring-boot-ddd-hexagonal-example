@@ -34,7 +34,10 @@ public class OrderPersistenceAdapter implements OrderOutputPort {
     @Override
     public Mono<Order> findById(Long orderId) {
         return orderRepository.findById(orderId)
-                .map(orderMapper::toOrderDomain)
-                .switchIfEmpty(Mono.error(new OrderNotFoundException("Order not found!")));
+                .switchIfEmpty(Mono.error(new OrderNotFoundException("Order not found!")))
+                .flatMap(orderEntity -> orderItemRepository.findAllByOrderId(orderId)
+                        .map(orderMapper::toOrderItemDomain)
+                        .collectList()
+                        .map(orderItems -> orderMapper.toOrderDomain(orderEntity, orderItems)));
     }
 }

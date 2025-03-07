@@ -20,11 +20,11 @@ public class OrderService implements CreateOrderUseCase, GetOrderUseCase {
     @Override
     public Mono<Order> createOrder(Order order) {
         return orderOutputPort.save(order)
-                .map(orderSaved -> Flux.fromStream(order.getItems().stream())
+                .flatMap(orderSaved -> Flux.fromIterable(order.getItems())
                         .flatMap(orderItem -> inventoryOutputPort.checkInventory(orderItem.getProductId(), orderItem.getQuantity())
                                 .flatMap(isAvailable -> {
-                                    if (!isAvailable) {
-                                        return Mono.error(new RuntimeException("Insufficient inventory!"));
+                                    if (Boolean.FALSE.equals(isAvailable)) {
+                                        return Mono.error(new RuntimeException("Insufficient inventory for product: " + orderItem.getProductId()));
                                     }
 
                                     return orderOutputPort.saveOrderItems(orderSaved.getId(), orderItem);
@@ -33,8 +33,8 @@ public class OrderService implements CreateOrderUseCase, GetOrderUseCase {
                         .map(orderItems -> {
                             orderSaved.setItems(orderItems);
                             return orderSaved;
-                        }))
-                .map(orderSaved -> order);
+                        }));
+
     }
 
     @Override
